@@ -1,0 +1,33 @@
+name: Reservations reminder
+
+# 每天（含周末）算放票表 → 对「明天放票」的标的发 ntfy 推送 → 提交 reservations.json 触发 deploy。
+on:
+  schedule:
+    - cron: "0 15 * * *"   # 每日 UTC 15:00 ≈ 美西早 7–8 点
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  reservations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compute schedule + notify
+        # NTFY_TOPIC：仓库 Secrets 里设你的 ntfy 订阅 topic（手机装 ntfy app 订阅同名 topic）
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          cd pipeline
+          python fetch_reservations.py --notify
+      - name: Commit data
+        run: |
+          git config user.name "reservations-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add public/data/reservations.json
+          git diff --staged --quiet || git commit -m "reservations: 自动更新 $(date -u +%F)"
+          git push
