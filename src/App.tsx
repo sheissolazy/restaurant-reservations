@@ -98,8 +98,8 @@ export default function App() {
         <p className="text-sm text-muted">点 ☆ 收藏。提前一天手机推送——只推你收藏的餐厅。</p>
 
         <div className="mt-2 rounded-xl bg-canvas border border-line text-muted text-xs px-3 py-2 leading-relaxed">
-          ℹ️ <b>定时放票</b>的日子标在日历上（如每月 1 号）；<b>滚动放票</b>的每天都在放 N 天后那一档，看「今天可订至」。
-          放票<b>时间</b>未经官方核实的标「时间待确认」，不会自动推送——绝不编造时间提醒你。
+          ℹ️ <b>定时放票</b>的日子标在日历上。放票<b>时间</b>未经官方核实的标「时间待确认」，
+          不会自动推送——绝不编造时间提醒你。
         </div>
 
         {/* 推送名单同步条 */}
