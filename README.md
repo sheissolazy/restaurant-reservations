@@ -18,15 +18,24 @@ npm run dev                       # 前端
 python3 pipeline/fetch_reservations.py   # 重新生成 reservations.json（仅标准库）
 ```
 
+## 收藏 + 只推收藏的（星标）
+- 网页端点 ☆ 收藏，存在浏览器 localStorage（按设备、即时）；可「只看收藏」过滤。
+- **推送只发收藏的**：云端推送读不到浏览器，故推送名单是仓库里的 `pipeline/favorites.json`。
+  只有名单内、且放票时间已核实的餐厅，才会在放票前一天推送。
+- **同步**：网页星标与 `favorites.json` 不一致时，页面顶部出现「同步推送名单」按钮——
+  点一下复制 JSON 并跳到 GitHub 编辑该文件，粘贴提交即可让手机推送与星标一致。
+- `favorites.json` 删掉 = 回退为「对所有已核实放票推送」；空列表 = 不推送。
+
 ## 开启手机推送（2 步）
 1. 手机装 [ntfy](https://ntfy.sh) app，订阅一个只有你知道的 topic（如 `myc-resos-x7q2`）。
 2. 仓库 Settings → Secrets → 新增 `NTFY_TOPIC` = 该 topic 名。
 
-之后每天早上，对「明天放票」且时间已核实的标的（目前 Canlis / Archipelago / Ltd Edition）会推送到手机。
+之后每天早上，对「收藏内 + 明天放票 + 时间已核实」的标的推送到手机
+（可推送的：放票时间已核实者 = Canlis / Archipelago / Ltd Edition）。
 
 ## 加城市 / 改规则
-只动 `pipeline/fetch_reservations.py` 的 `RESTAURANTS` 表。当前为 Seattle 10 家。
+只动 `pipeline/fetch_reservations.py` 的 `RESTAURANTS` 表。当前为 Seattle 9 家。
 
 ## 待办
 - 自动订位（Phase 2）：仅对 1–2 家必抢的做半自动脚本，触碰真实账号，按需再建。
-- 未核实的放票规律（Pink Door / Kamonegi / Communion / Musang / Carrello / Taneda）需再确认。
+- Musang 滚动窗口天数、Taneda 当月确切放票日（IG 公布、历史有漂移）仍需逐月核实。
