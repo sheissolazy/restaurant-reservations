@@ -108,37 +108,42 @@ RESTAURANTS = [
         "id": "communion", "name": "Communion", "cuisine": "西雅图 soul food（黑人美式）", "city": "Seattle",
         "platform": "opentable", "bookingUrl": "https://www.opentable.com/r/communion-restaurant-and-bar-seattle",
         "priceNote": "à la carte ~$60–$90", "prepaid": "none",
+        # 节奏已核实（每月最后一周放下月），但开放「时刻」由 IG 临时公布、无固定日期 → 无法上日历，保持 unknown
         "model": "unknown",
         "confidence": "medium", "verifiedTime": False,
-        "notes": "OpenTable 按月分批放票，节奏未核实。需到期核实放票规律。",
-        "source": "https://www.opentable.com/r/communion-restaurant-and-bar-seattle",
+        "notes": "每月「最后一周」放下月预订，由 IG @communionseattle 临时公布开放时刻——无固定日期可上日历。另每天约 16:00 放少量临时位、约 16:30 开放 walk-in；黄金周末位约提前两周。",
+        "source": "https://www.theinfatuation.com/seattle/guides/previously-impossible-reservations-you-can-get-now-seattle",
     },
     {
         "id": "musang", "name": "Musang", "cuisine": "菲律宾", "city": "Seattle",
         "platform": "opentable", "bookingUrl": "https://www.opentable.com/r/musang-seattle",
         "priceNote": "à la carte ~$50–$80", "prepaid": "deposit",
-        "model": "unknown",
-        "confidence": "low", "verifiedTime": False,
-        "notes": "$450 订位费（抵餐费）、$75/人低消、72 小时取消。放票规律未核实。每日 walk-in 吧台 + 部分桌位。",
-        "source": "https://www.opentable.com/r/musang-seattle",
+        "model": "rolling",
+        "rolling": {"daysAhead": None, "time": None},   # 已核实为滚动放票；窗口天数 N 官方未公布
+        "confidence": "medium", "verifiedTime": False,
+        "notes": "滚动放票（窗口天数未核实）：周中常有当天位，周末黄金时段约提前 1–2 周。含订位费桌（$375–$450 抵餐费）、$75/人低消、72 小时取消。吧台 + 部分桌位可 walk-in（1–4 人）。",
+        "source": "https://www.theinfatuation.com/seattle/guides/previously-impossible-reservations-you-can-get-now-seattle",
     },
     {
         "id": "carrello", "name": "Carrello", "cuisine": "意式", "city": "Seattle",
-        "platform": "sevenrooms", "bookingUrl": "https://www.carrelloseattle.com/",
-        "priceNote": "à la carte ~$80–$120", "prepaid": "unknown",
-        "model": "unknown",
-        "confidence": "medium", "verifiedTime": False,
-        "notes": "SevenRooms 直订（官网 BOOK A TABLE）/ 电话 206-257-5622。放票规律未核实。",
-        "source": "https://www.carrelloseattle.com/",
+        "platform": "sevenrooms", "bookingUrl": "https://www.carrellorestaurant.com/",
+        "priceNote": "à la carte ~$80–$120", "prepaid": "none",
+        "model": "rolling",
+        "rolling": {"daysAhead": 300, "time": None},   # 实测 SevenRooms 可订约 300 天后，无放票闸门
+        "confidence": "high", "verifiedTime": False,
+        "notes": "SevenRooms 直订，无放票闸门——实测可订约 300 天后的位子，订满为止。周三至周日营业（周一二休）。7 人以上电话 206-257-5622。48 小时取消 $25/人。",
+        "source": "https://www.carrellorestaurant.com/faq",
     },
     {
         "id": "taneda", "name": "Taneda", "cuisine": "江户前寿司 omakase", "city": "Seattle",
         "platform": "tock", "bookingUrl": "https://www.exploretock.com/taneda",
         "priceNote": "$255 + 20% 服务费（预付）", "prepaid": "full",
-        "model": "unknown",
-        "confidence": "low", "verifiedTime": False,
-        "notes": "Tock 预付全款。当前售罄、仅 waitlist；放票节奏未核实。48 小时取消截止、不退款。",
-        "source": "https://www.exploretock.com/taneda",
+        "model": "scheduled_drop",
+        # 估计：每月「倒数第二个周六」11:00 PT 放下月（IG 公布、历史有漂移）→ verifiedTime=False，上日历但不自动推送
+        "drop": {"weekday": 5, "weekdayFromEnd": 2, "time": "11:00", "monthsAhead": 1},
+        "confidence": "medium", "verifiedTime": False,
+        "notes": "估计每月倒数第二个周六 11:00 PT 放下月、约 30 分钟售罄；具体日子以 IG 公布为准（历史有漂移，故标「时间待确认」、不自动推送）。Tock 预付全款、48 小时取消不退。",
+        "source": "https://www.theinfatuation.com/seattle/guides/toughest-restaurant-reservations-seattle",
     },
 ]
 
@@ -153,6 +158,23 @@ def _next_monthly_drop(now_pt, day_of_month, hh, mm):
             cand = None
         if cand and cand >= now_pt:
             return cand
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+    return None
+
+
+def _next_weekday_from_end_drop(now_pt, weekday, from_end, hh, mm):
+    """下一个「当月倒数第 from_end 个 <weekday>」HH:MM 的 PT datetime（>= now）。
+    weekday: Mon=0 … Sat=5 … Sun=6。from_end=2 → 倒数第二个。"""
+    y, m = now_pt.year, now_pt.month
+    for _ in range(3):
+        last_day = (dt.date(y, m + 1, 1) - dt.timedelta(days=1)).day if m < 12 else 31
+        matches = [d for d in range(1, last_day + 1) if dt.date(y, m, d).weekday() == weekday]
+        if len(matches) >= from_end:
+            cand = dt.datetime(y, m, matches[-from_end], hh, mm, tzinfo=PT)
+            if cand >= now_pt:
+                return cand
         m += 1
         if m > 12:
             m, y = 1, y + 1
@@ -180,20 +202,27 @@ def compute(r, now_pt):
         if nxt is None and "drop" in r:
             d = r["drop"]
             hh, mm = (int(x) for x in d["time"].split(":"))
-            nxt = _next_monthly_drop(now_pt, d["dayOfMonth"], hh, mm)
+            if "weekdayFromEnd" in d:
+                nxt = _next_weekday_from_end_drop(now_pt, d["weekday"], d["weekdayFromEnd"], hh, mm)
+            else:
+                nxt = _next_monthly_drop(now_pt, d["dayOfMonth"], hh, mm)
         if nxt:
             out["nextReleaseDate"] = nxt.date().isoformat()
             out["nextReleaseAt"] = nxt.isoformat()
             out["opensInDays"] = (nxt.date() - now_pt.date()).days
             ma = r.get("drop", {}).get("monthsAhead")
-            tail = f"放提前 {ma} 个月那档" if ma else "放新一批"
-            out["releaseLabel"] = f"{nxt.month}/{nxt.day} {nxt.strftime('%H:%M')} PT · {tail}"
+            tail = "放下月" if ma == 1 else (f"放提前 {ma} 个月那档" if ma else "放新一批")
+            est = "" if r["verifiedTime"] else "（估计）"
+            out["releaseLabel"] = f"{nxt.month}/{nxt.day} {nxt.strftime('%H:%M')} PT{est} · {tail}"
 
     elif r["model"] == "rolling":
         n = r["rolling"]["daysAhead"]
         out["rollingDaysAhead"] = n
-        out["bookableThrough"] = (now_pt.date() + dt.timedelta(days=n)).isoformat()
-        out["releaseLabel"] = f"滚动提前 {n} 天 · 今天可订至 {out['bookableThrough']}"
+        if n:
+            out["bookableThrough"] = (now_pt.date() + dt.timedelta(days=n)).isoformat()
+            out["releaseLabel"] = f"滚动提前 {n} 天 · 今天可订至 {out['bookableThrough']}"
+        else:
+            out["releaseLabel"] = "滚动放票 · 窗口天数未核实"
 
     return out
 
