@@ -74,8 +74,8 @@ export default function App() {
           {rolling.map((r) => (
             <div key={r.id} className="p-3 flex items-start gap-3">
               <div className="w-14 shrink-0 text-center">
-                <div className="text-base font-bold tnum leading-none">{r.rollingDaysAhead}</div>
-                <div className="text-[10px] text-muted">天</div>
+                <div className="text-base font-bold tnum leading-none">{r.rollingDaysAhead ?? '—'}</div>
+                <div className="text-[10px] text-muted">{r.rollingDaysAhead ? '天' : '待核实'}</div>
               </div>
               <Body r={r} />
             </div>
