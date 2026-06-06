@@ -9,9 +9,12 @@
   推送任务也拒绝对未核实时间触发，绝不编造一个时间去提醒。
 
 用法（仅标准库，无需 pip install）：
-  python3 fetch_reservations.py            # 仅生成 reservations.json
-  python3 fetch_reservations.py --notify   # 生成 + 对「明天放票」的标的发 ntfy 推送
-                                           #   需环境变量 NTFY_TOPIC（可选 NTFY_SERVER，默认 ntfy.sh）
+  python3 fetch_reservations.py                # 仅生成 reservations.json
+  python3 fetch_reservations.py --notify       # 生成 + 对「明天放票」的标的发 T-1 天「准备一下」推送
+  python3 fetch_reservations.py --notify-open  # 生成 + 对「此刻正在放票」的标的发「立刻订」直达推送
+                                               #   两者都需环境变量 NTFY_TOPIC（可选 NTFY_SERVER，默认 ntfy.sh）
+                                               #   --notify-open 由高频 cron（每 ~10 分钟）调用，命中放票时刻才推；
+                                               #   用 push_state.json 去重，确保每次放票只推一次。
 """
 import datetime as dt
 import json
@@ -22,8 +25,14 @@ from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "public", "data")
+PIPELINE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUSH_STATE_PATH = os.path.join(PIPELINE_DIR, "push_state.json")
 TODAY = dt.date.today()
 PT = ZoneInfo("America/Los_Angeles")
+
+# 「立刻订」推送的命中窗口：放票时刻起 OPEN_WINDOW_MIN 分钟内，高频 cron 一旦撞上就推一次。
+# 给足余量是因为 GitHub Actions cron 常有几分钟漂移；用 push_state.json 去重避免重复推。
+OPEN_WINDOW_MIN = 25
 
 
 def write_json(rel_path, obj):
@@ -101,6 +110,25 @@ def _next_weekday_from_end_drop(now_pt, weekday, from_end, hh, mm):
     return None
 
 
+def _scheduled_drop_at(r, ref):
+    """从 ref 时刻起，这家 scheduled_drop 餐厅的下一个放票 PT datetime（>= ref）。
+    优先用人工写死的 nextDropOverride；否则按 drop 规则（每月几号 / 当月倒数第几个周几）。
+    notify_open 会传 ref = now - 窗口，好让「刚开始的放票」也能被认出来。"""
+    ov = r.get("nextDropOverride")
+    if ov:
+        cand = dt.datetime.fromisoformat(ov).replace(tzinfo=PT)
+        if cand >= ref:
+            return cand
+        return None
+    if "drop" in r:
+        d = r["drop"]
+        hh, mm = (int(x) for x in d["time"].split(":"))
+        if "weekdayFromEnd" in d:
+            return _next_weekday_from_end_drop(ref, d["weekday"], d["weekdayFromEnd"], hh, mm)
+        return _next_monthly_drop(ref, d["dayOfMonth"], hh, mm)
+    return None
+
+
 def compute(r, now_pt):
     """把放票规则算成可渲染的下一个开放日字段（不改输入）。"""
     out = {
@@ -113,19 +141,7 @@ def compute(r, now_pt):
     }
 
     if r["model"] == "scheduled_drop":
-        nxt = None
-        ov = r.get("nextDropOverride")
-        if ov:
-            cand = dt.datetime.fromisoformat(ov).replace(tzinfo=PT)
-            if cand >= now_pt:
-                nxt = cand
-        if nxt is None and "drop" in r:
-            d = r["drop"]
-            hh, mm = (int(x) for x in d["time"].split(":"))
-            if "weekdayFromEnd" in d:
-                nxt = _next_weekday_from_end_drop(now_pt, d["weekday"], d["weekdayFromEnd"], hh, mm)
-            else:
-                nxt = _next_monthly_drop(now_pt, d["dayOfMonth"], hh, mm)
+        nxt = _scheduled_drop_at(r, now_pt)
         if nxt:
             out["nextReleaseDate"] = nxt.date().isoformat()
             out["nextReleaseAt"] = nxt.isoformat()
@@ -195,6 +211,96 @@ def notify(items):
             print(f"  [notify] ✗ {it['name']} 推送失败：{e}", file=sys.stderr)
 
 
+def load_push_state():
+    """读 push_state.json 的「已推过的放票时刻」集合，用于去重。文件不存在 → 空。"""
+    if not os.path.exists(PUSH_STATE_PATH):
+        return {"opened": []}
+    try:
+        with open(PUSH_STATE_PATH, encoding="utf-8") as f:
+            st = json.load(f)
+            st.setdefault("opened", [])
+            return st
+    except Exception as e:  # noqa
+        print(f"  [open] push_state.json 解析失败，当作空：{e}", file=sys.stderr)
+        return {"opened": []}
+
+
+def save_push_state(state):
+    # 只保留最近 50 条，避免无限增长
+    state["opened"] = state.get("opened", [])[-50:]
+    with open(PUSH_STATE_PATH, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+    print(f"  [open] ✓ wrote {os.path.relpath(PUSH_STATE_PATH, ROOT)}")
+
+
+def _ntfy_post(title, body, click, tags, priority):
+    topic = os.environ.get("NTFY_TOPIC")
+    if not topic:
+        print("  [push] 未设 NTFY_TOPIC，跳过推送")
+        return False
+    server = os.environ.get("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
+    req = urllib.request.Request(
+        f"{server}/{topic}", data=body.encode("utf-8"),
+        headers={
+            "Title": title.encode("utf-8").decode("latin-1", "ignore"),
+            "Click": click,
+            "Priority": priority,
+            "Tags": tags,
+        },
+    )
+    urllib.request.urlopen(req, timeout=15).read()
+    return True
+
+
+def notify_open(now_pt):
+    """「立刻订」：对此刻正处于放票窗口（放票时刻起 OPEN_WINDOW_MIN 分钟内）、
+    时间已核实、且在收藏名单内的标的，发一条直达 Tock 的高优先级推送。
+    用 push_state.json 按「id@放票时刻」去重，确保每次放票只推一次。
+    关键：用 ref = now - 窗口 去找放票时刻，这样「刚刚开始的放票」也能被认出来
+    （compute() 只给未来的放票，不能用于此处）。"""
+    if not os.environ.get("NTFY_TOPIC"):
+        print("  [open] 未设 NTFY_TOPIC，跳过推送")
+        return
+    favorites = load_favorites()
+    state = load_push_state()
+    opened = set(state["opened"])
+    window = dt.timedelta(minutes=OPEN_WINDOW_MIN)
+    ref = now_pt - window
+
+    fired_any = False
+    for r in RESTAURANTS:
+        if r["model"] != "scheduled_drop" or not r.get("verifiedTime"):
+            continue
+        if favorites is not None and r["id"] not in favorites:
+            continue
+        drop_at = _scheduled_drop_at(r, ref)
+        if not drop_at or not (drop_at <= now_pt < drop_at + window):
+            continue
+        key = f"{r['id']}@{drop_at.isoformat()}"
+        if key in opened:
+            print(f"  [open] {r['name']} 本次放票已推过，跳过")
+            continue
+        info = compute(r, drop_at)  # 拿 releaseLabel 等展示字段
+        title = f"现在放票：{r['name']} — 立刻订"
+        body = (
+            f"{info['releaseLabel']}\n{r['cuisine']} · {r['priceNote']}\n"
+            f"手机已登录 Tock，约 2 步确认+付款 → 点开直达"
+        )
+        try:
+            if _ntfy_post(title, body, r["bookingUrl"], "rotating_light", "urgent"):
+                opened.add(key)
+                fired_any = True
+                print(f"  [open] ✓ 已推送「立刻订」{r['name']}")
+        except Exception as e:  # noqa
+            print(f"  [open] ✗ {r['name']} 推送失败：{e}", file=sys.stderr)
+
+    if fired_any:
+        state["opened"] = sorted(opened)
+        save_push_state(state)
+    else:
+        print("  [open] 此刻无（收藏内的）已核实放票在窗口内，跳过")
+
+
 def main():
     now_pt = dt.datetime.now(PT)
     items = [compute(r, now_pt) for r in RESTAURANTS]
@@ -216,6 +322,8 @@ def main():
 
     if "--notify" in sys.argv:
         notify(items)
+    if "--notify-open" in sys.argv:
+        notify_open(now_pt)
 
 
 if __name__ == "__main__":
