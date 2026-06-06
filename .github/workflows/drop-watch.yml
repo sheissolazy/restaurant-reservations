@@ -1,0 +1,40 @@
+name: Drop watch (立刻订)
+
+# 高频盯放票时刻：每 10 分钟算一次，若某收藏餐厅此刻正处于放票窗口（时间已核实），
+# 就发一条「立刻订」直达 Tock 的高优先级推送。push_state.json 去重，保证每次放票只推一次。
+# 公共仓库 Actions 免费，故可频繁跑；命中才推，平时只是空算一遍。
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # 每 10 分钟
+  workflow_dispatch:
+
+# 避免与每日 reservations.yml / 自身并发提交打架
+concurrency:
+  group: reservations-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  drop-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compute + open-now push
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          cd pipeline
+          python fetch_reservations.py --notify-open
+      - name: Commit push state
+        run: |
+          git config user.name "reservations-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add pipeline/push_state.json public/data/reservations.json
+          git diff --staged --quiet || git commit -m "drop-watch: 放票推送状态 $(date -u +%FT%TZ)"
+          git pull --rebase --autostash || true
+          git push
