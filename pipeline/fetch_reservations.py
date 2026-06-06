@@ -105,16 +105,6 @@ RESTAURANTS = [
         "source": "https://www.exploretock.com/kamonegiseattle",
     },
     {
-        "id": "communion", "name": "Communion", "cuisine": "西雅图 soul food（黑人美式）", "city": "Seattle",
-        "platform": "opentable", "bookingUrl": "https://www.opentable.com/r/communion-restaurant-and-bar-seattle",
-        "priceNote": "à la carte ~$60–$90", "prepaid": "none",
-        # 节奏已核实（每月最后一周放下月），但开放「时刻」由 IG 临时公布、无固定日期 → 无法上日历，保持 unknown
-        "model": "unknown",
-        "confidence": "medium", "verifiedTime": False,
-        "notes": "每月「最后一周」放下月预订，由 IG @communionseattle 临时公布开放时刻——无固定日期可上日历。另每天约 16:00 放少量临时位、约 16:30 开放 walk-in；黄金周末位约提前两周。",
-        "source": "https://www.theinfatuation.com/seattle/guides/previously-impossible-reservations-you-can-get-now-seattle",
-    },
-    {
         "id": "musang", "name": "Musang", "cuisine": "菲律宾", "city": "Seattle",
         "platform": "opentable", "bookingUrl": "https://www.opentable.com/r/musang-seattle",
         "priceNote": "à la carte ~$50–$80", "prepaid": "deposit",
@@ -227,17 +217,34 @@ def compute(r, now_pt):
     return out
 
 
+def load_favorites():
+    """读 favorites.json 的收藏 id 列表。文件不存在 → None（回退为「对所有已核实放票推送」）。"""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favorites.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return list(json.load(f).get("favorites", []))
+    except Exception as e:  # noqa
+        print(f"  [notify] favorites.json 解析失败，回退为全部已核实：{e}", file=sys.stderr)
+        return None
+
+
 def notify(items):
-    """对「明天放票」且时间已核实的 scheduled_drop 标的发 ntfy 推送。"""
+    """只对「明天放票 + 时间已核实 + 在收藏名单内」的标的发 ntfy 推送。"""
     topic = os.environ.get("NTFY_TOPIC")
     if not topic:
         print("  [notify] 未设 NTFY_TOPIC，跳过推送")
         return
     server = os.environ.get("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
     tomorrow = (TODAY + dt.timedelta(days=1)).isoformat()
+    favorites = load_favorites()
     due = [it for it in items if it["verifiedTime"] and it["nextReleaseDate"] == tomorrow]
+    if favorites is not None:
+        due = [it for it in due if it["id"] in favorites]
+        print(f"  [notify] 收藏名单：{favorites}")
     if not due:
-        print("  [notify] 明天无已核实的放票，跳过")
+        print("  [notify] 明天无（收藏内的）已核实放票，跳过")
         return
     for it in due:
         title = f"明天放票：{it['name']}"

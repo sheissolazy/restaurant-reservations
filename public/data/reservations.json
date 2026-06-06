@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-06T00:09:08.795879+00:00",
+  "generatedAt": "2026-06-06T00:24:45.235814+00:00",
   "today": "2026-06-05",
   "city": "Seattle",
   "items": [
@@ -191,27 +191,6 @@
       "opensInDays": null,
       "rollingDaysAhead": 90,
       "bookableThrough": "2026-09-03"
-    },
-    {
-      "id": "communion",
-      "name": "Communion",
-      "cuisine": "西雅图 soul food（黑人美式）",
-      "city": "Seattle",
-      "platform": "opentable",
-      "bookingUrl": "https://www.opentable.com/r/communion-restaurant-and-bar-seattle",
-      "priceNote": "à la carte ~$60–$90",
-      "prepaid": "none",
-      "model": "unknown",
-      "confidence": "medium",
-      "verifiedTime": false,
-      "notes": "每月「最后一周」放下月预订，由 IG @communionseattle 临时公布开放时刻——无固定日期可上日历。另每天约 16:00 放少量临时位、约 16:30 开放 walk-in；黄金周末位约提前两周。",
-      "source": "https://www.theinfatuation.com/seattle/guides/previously-impossible-reservations-you-can-get-now-seattle",
-      "nextReleaseDate": null,
-      "nextReleaseAt": null,
-      "releaseLabel": null,
-      "opensInDays": null,
-      "rollingDaysAhead": null,
-      "bookableThrough": null
     }
   ]
 }
