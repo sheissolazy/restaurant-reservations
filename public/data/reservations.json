@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-06T16:03:33.822580+00:00",
-  "today": "2026-06-06",
+  "generatedAt": "2026-06-07T16:11:10.388858+00:00",
+  "today": "2026-06-07",
   "city": "Seattle",
   "items": [
     {
@@ -20,7 +20,7 @@
       "nextReleaseDate": "2026-06-15",
       "nextReleaseAt": "2026-06-15T18:00:00-07:00",
       "releaseLabel": "6/15 18:00 PT · 放新一批",
-      "opensInDays": 9,
+      "opensInDays": 8,
       "rollingDaysAhead": null,
       "bookableThrough": null
     },
@@ -41,7 +41,7 @@
       "nextReleaseDate": "2026-06-20",
       "nextReleaseAt": "2026-06-20T11:00:00-07:00",
       "releaseLabel": "6/20 11:00 PT（估计） · 放下月",
-      "opensInDays": 14,
+      "opensInDays": 13,
       "rollingDaysAhead": null,
       "bookableThrough": null
     }
