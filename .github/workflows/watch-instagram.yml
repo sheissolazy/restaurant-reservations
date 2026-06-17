@@ -1,11 +1,11 @@
 name: Watch Instagram (Taneda)
 
-# 每小时用你的 IG 登录 cookie 看 @tanedaseattle 有没有新帖；有就 ntfy 推送（放票公告类标高优先级）。
+# 每天一次用你的 IG 登录 cookie 看 @tanedaseattle 有没有新帖；有就 ntfy 推送（放票公告类标高优先级）。
 # 没设 IG_SESSIONID 时脚本干净跳过（exit 0、不报错），所以即使还没配 cookie 也不会发失败邮件。
-# 公告类帖子不急到秒级（放票日通常还在数天后），每小时足够；对 IG 也更温和、降低被限流风险。
+# 公告帖不急到秒级（放票日通常还在数天后），每天一次足够，对 IG 也最温和、最不易被限流。
 on:
   schedule:
-    - cron: "7 * * * *"   # 每小时第 7 分钟
+    - cron: "30 16 * * *"   # 每日 UTC 16:30 ≈ 美西早 8:30–9:30，赶上当天早上的公告
   workflow_dispatch:
 
 # 与 reservations.yml / drop-watch.yml 共用一把锁，避免并发 push 数据/状态文件打架
