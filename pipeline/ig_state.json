@@ -1,0 +1,5 @@
+{
+  "_comment": "Instagram 盯帖状态：seen_ids=已见过的帖 id（防重复推）；auth_alerted=是否已提醒过 cookie 失效。首次带 cookie 运行会把当时的现有帖登记为已读、不补推历史。",
+  "seen_ids": [],
+  "auth_alerted": false
+}

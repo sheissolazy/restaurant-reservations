@@ -1,0 +1,44 @@
+name: Watch Instagram (Taneda)
+
+# 每小时用你的 IG 登录 cookie 看 @tanedaseattle 有没有新帖；有就 ntfy 推送（放票公告类标高优先级）。
+# 没设 IG_SESSIONID 时脚本干净跳过（exit 0、不报错），所以即使还没配 cookie 也不会发失败邮件。
+# 公告类帖子不急到秒级（放票日通常还在数天后），每小时足够；对 IG 也更温和、降低被限流风险。
+on:
+  schedule:
+    - cron: "7 * * * *"   # 每小时第 7 分钟
+  workflow_dispatch:
+
+# 与 reservations.yml / drop-watch.yml 共用一把锁，避免并发 push 数据/状态文件打架
+concurrency:
+  group: reservations-data
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  watch-instagram:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check Instagram + notify
+        # IG_SESSIONID：仓库 Secrets 里设你浏览器 IG 登录 cookie 里的 sessionid（过期需更新，类似 X_AUTH_TOKEN）
+        # IG_CSRFTOKEN：可选；NTFY_TOPIC：推送目标 topic
+        env:
+          IG_SESSIONID: ${{ secrets.IG_SESSIONID }}
+          IG_CSRFTOKEN: ${{ secrets.IG_CSRFTOKEN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          cd pipeline
+          python watch_instagram.py --notify
+      - name: Commit state
+        run: |
+          git config user.name "reservations-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A pipeline/ig_state.json
+          git diff --staged --quiet || git commit -m "ig-watch: 盯帖状态 $(date -u +%FT%TZ)"
+          git pull --rebase --autostash || true
+          git push
