@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-20T16:14:24.129062+00:00",
-  "today": "2026-06-20",
+  "generatedAt": "2026-06-21T16:27:21.768484+00:00",
+  "today": "2026-06-21",
   "city": "Seattle",
   "items": [
     {
@@ -17,10 +17,10 @@
       "verifiedTime": false,
       "notes": "估计每月倒数第二个周六 11:00 PT 放下月、约 30 分钟售罄；具体日子以 IG 公布为准（历史有漂移，故标「时间待确认」、不自动推送）。Tock 预付全款、48 小时取消不退。",
       "source": "https://www.theinfatuation.com/seattle/guides/toughest-restaurant-reservations-seattle",
-      "nextReleaseDate": "2026-06-20",
-      "nextReleaseAt": "2026-06-20T11:00:00-07:00",
-      "releaseLabel": "6/20 11:00 PT（估计） · 放下月",
-      "opensInDays": 0,
+      "nextReleaseDate": "2026-07-18",
+      "nextReleaseAt": "2026-07-18T11:00:00-07:00",
+      "releaseLabel": "7/18 11:00 PT（估计） · 放下月",
+      "opensInDays": 27,
       "rollingDaysAhead": null,
       "bookableThrough": null
     },
