@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-04T15:57:36.705715+00:00",
-  "today": "2026-07-04",
+  "generatedAt": "2026-07-05T16:02:51.883190+00:00",
+  "today": "2026-07-05",
   "city": "Seattle",
   "items": [
     {
@@ -20,7 +20,7 @@
       "nextReleaseDate": "2026-07-18",
       "nextReleaseAt": "2026-07-18T11:00:00-07:00",
       "releaseLabel": "7/18 11:00 PT（估计） · 放下月",
-      "opensInDays": 14,
+      "opensInDays": 13,
       "rollingDaysAhead": null,
       "bookableThrough": null
     },
